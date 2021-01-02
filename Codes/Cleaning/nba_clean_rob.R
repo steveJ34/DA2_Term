@@ -104,5 +104,6 @@ df_round_filter <- df_full %>% filter( draft_round > 2 )
 df_full <- df_full %>% filter( draft_round < 3 )
 
 # Saving the clean data 
-write.csv(df_full, "/Users/steve_j/Documents/CEU /data_analysis/DA_2/DA2_Term/Data//nba_clean_rob.csv", row.names = FALSE)
+#write.csv(df_full, "/your path//nba_clean_rob.csv", row.names = FALSE)
+
 
