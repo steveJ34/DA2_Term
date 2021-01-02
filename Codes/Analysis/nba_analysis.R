@@ -257,7 +257,7 @@ summary(reg7)
 
 #####
 # Creating model summary with texreg
-data_out <- "/Users/steve_j/Documents/CEU /data_analysis/DA_2/DA2_Term/Out/"
+data_out <- "https://github.com/steveJ34/DA2_Term/tree/main/Out/"
 htmlreg( list(reg1 , reg2 , reg3 , reg4, reg5, reg6, reg7),
          type = 'html',
          custom.model.names = c("Simple Regression","Quadratic Model","Extended Model w. Tot games ",
@@ -401,7 +401,7 @@ reg5_t2 <- lm_robust(avg_salary ~ PER + lspline(tot_games, cutoff) + draft_round
 summary(reg5_t2)
 
 # Creating model summary with texreg
-data_out <- "/Users/steve_j/Documents/CEU /data_analysis/DA_2/DA2_Term/Out/"
+data_out <- "https://github.com/steveJ34/DA2_Term/tree/main/Out"
 htmlreg( list(reg5_t1 , reg5_t2),
          type = 'html',
          custom.model.names = c("Random Sample (original data)","Sample 1988-2003"),
