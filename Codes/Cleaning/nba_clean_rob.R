@@ -21,6 +21,7 @@ rm(list=ls())
 library(tidyverse)
 
 
+
 # Call the player data from github
 player_data <- "https://raw.githubusercontent.com/steveJ34/DA2_Term/main/Data/Raw/players.csv"
 df_player <- read_csv( player_data )
@@ -40,6 +41,7 @@ df_player1 <-df_player1 %>%  rename(player_id = id)
 # Call the salary data from github
 salary_data <- "https://raw.githubusercontent.com/steveJ34/DA2_Term/main/Data/Raw/salaries_1985to2018.csv"
 df_salary <- read_csv( salary_data )
+
 
 # Taking a sample of 15 years 
 df_salary <- df_salary %>% filter( season_end < 2003 )
