@@ -22,7 +22,7 @@ library(tidyverse)
 
 
 # Call the player data from github
-player_data <- "/Users/steve_j/Documents/CEU /data_analysis/DA_2/DA2_Term/players (1) copy.csv"
+player_data <- "https://raw.githubusercontent.com/steveJ34/DA2_Term/main/Data/Raw/players.csv"
 df_player <- read_csv( player_data )
 
 
@@ -38,7 +38,7 @@ df_player1 <-df_player1 %>%  rename(player_id = id)
 
 
 # Call the salary data from github
-salary_data <- "/Users/steve_j/Documents/CEU /data_analysis/DA_2/DA2_Term/salaries_1985to2018 (1).csv"
+salary_data <- "https://raw.githubusercontent.com/steveJ34/DA2_Term/main/Data/Raw/salaries_1985to2018.csv"
 df_salary <- read_csv( salary_data )
 
 # Taking a sample of 15 years 
