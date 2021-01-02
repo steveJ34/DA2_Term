@@ -1,0 +1,550 @@
+---
+title: '**DA2 Term Project**'
+author: 'Istvan Janco #2003877'
+date: "01/03/2021"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, out.width = "90%" )
+```
+
+## Abstract 
+The research is aimed to answer the question of whether and how performance metrics are affecting the salary of NBA players? The result is based on a data set of NBA salaries 1985 - 2018 and averages of player statistics (efficiency, number of games played, etc.). The main assumption is that the salaries and the performance stats are positively correlated. This analysis can be useful for general managers who are looking to extend contracts with existing players or sing new players. It suppose to provide an insight to what salary is to be expected for a player with certain characteristics and explore which players are over-valued and which players are under-valued. 
+
+## 1 Data
+The data is restricted to a time frame of 2003 - 2018. The data was taken from the "data.world" website (https://data.world/datadavis/nba-salaries) and originally scraped from "basketballreference" webpage. The quality data is good, some missing values are present, however, there's not much possibility of systematic measurement error. Apart from removing the missing values, all the players who were on a payroll for less than 5 seasons were dropped from the dataset. The aim is to deal with random extreme observations, and establish a minimum base for comparison. The aim of the model is to compare players whose salaries are different due to performance metrics not due to the lack of time spent in the NBA.   
+In addition only, players who played a 100 (approx. 1 season) or more games while being under contract are qualified for the analysis. The reason is to exclude the possibility of extreme values due to lack of games played (e.g. 100% made free-throw shots over 20 games). The objective is to model average salaries on efficiency, by comparing players that are similar in some statistics but differ in terms of compensation. In order to conduct the analysis more effectively controls such as the number of games played and the draft in which a player was drafted were included. The table and figure below outlines the descriptive statistics and distributions of the aforementioned variables. 
+
+
+```{r, include=FALSE}
+# Clear memory
+rm(list=ls())
+# Packages to use
+library(tidyverse)
+# For scaling ggplots
+require(scales)
+# Estimate piecewise linear splines
+#install.packages("lspline")
+library(lspline)
+# Estimate robust SE
+#install.packages("estimatr")
+library(estimatr)
+# Compare models with robust SE
+#install.packages("texreg")
+library(texreg)
+# For different themes
+#install.packages(ggthemes)
+library(ggthemes)
+library(dplyr)
+#install.packages("GGally")
+library('xtable')
+# Call the data from github
+my_data <- "/Users/steve_j/Documents/CEU /data_analysis/DA_2/DA2_Term/Data/nba_clean.csv"
+df <- read_csv( my_data )
+```
+
+### 1.1  Variables Summary 
+```{r, message=FALSE, results='asis', print = TRUE}
+library(knitr)
+df1<- df[,-c(1)]
+df_sum <- summary(df1)
+colnames(df_sum) <- c("Average salary", "PER", "Tot games", "Draft round")
+kable(df_sum[1:5,], caption = "Graph 1: Variable Summary", caption.placement = "bottom") 
+
+```
+
+The outcome variable is the average salary of players per career. It was scaled down by $1M. The explanatory variable is the Player Efficiency Ratio (PER) which is per minute rating that was developed to measure overall player efficiency (see Appendix 1 for more detailed description and collinearity). The control variables include the total games played for by a player for the whole career. In addition the draft round in which a player was selected is also incorporated.
+
+
+### 1.2 Distribution of variables 
+
+```{r, message=FALSE, warning = FALSE, results='asis', print = TRUE, fig.width=15, fig.height=6}
+df <- df %>% mutate(ln_avg_salary = log(avg_salary))
+
+df %>%
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~key, scales = "free") +
+  theme_economist_white()+
+  geom_histogram(main = "Variable Distribution")+
+  ggtitle("Graph 1: Variable distribution")
+```
+
+The distribution of salary variable seems to be log normal, however, once log transformed the distribution starts skewing to the right. Other variables are distributed normally. The number of observations is 438. 
+
+
+### 1.3 Transformation of Variables  
+
+ Once the variables were plotted against on another using scatter plots (see Appendix 2), the below points became evident.  
+1. The level-level model works best for the association between the average salary and PER. A quadratic term might be useful to capture the non-linearities, however it will complicates the interpretation. The benefit of it should be assessed relative to how complex the interpretation gets.   
+2. The simple model also works best for total games played, but there's an infection point, at about 500 games played, thus a spline with a knot at 500 can be used to tackle that issue 
+3. The draft round variable indicates a negative association between the draft round and average salary. The variable has only two categories thus it can be used as a dummy. 
+The main reasons to use transformations are the following. From statistical perspective, the quadratic term for PER and linear spline for the total games played should  help to offset the observed non-linear patterns. From substantive point of view, the interpretation should still be suitable for players as observations, despite introducing the quadratic term and adding a linear spline. 
+
+``` {r, include=FALSE}
+# Add powers of the PER variable:
+df <- df %>% mutate( PER_sq = PER^2)
+
+# Introduce cutoff for Linear Spline: 
+cutoff <- 500
+
+# Converting draft round to a dummy variable
+df$draft_round <- ifelse(df$draft_round == '2', 1, 0)
+```
+
+## 2 Model
+
+The main aim is to regress the average NBA player salaries on player efficiency (see Appendix 2). By plotting the two variables against each other on a scatter plot, we can get a general impression of the association and the functional form. 
+
+```{r, message=FALSE, warning = FALSE, results='asis', print = TRUE, fig.width=15, fig.height=6}
+# 1Average salary per career (in $MM)  - player efficiency rating: level-level model without scaling
+ggplot( df , aes(x = PER, y = avg_salary)) +
+  geom_point() +
+  theme_economist_white() +
+  geom_smooth(method="loess")+
+  labs(x = "Average PER per career", y = "Average salary per career (in $MM)") +
+  ggtitle("Graph 2: Average salary per career (in $MM)  - player efficiency rating")
+```
+
+Graph 1 shows a upward trending, linear-like tendency. After and analyzing several models (see below), it was determined that the connection can be captured by using the following model. $Average Salary = /beta_0 + \beta_1 * PER + \beta_2 * Total Games * 1(Total Games =< 500) + \beta_3 * Total Games * 1(Total Games > 500) + \beta_4 * Draft Round$
+
+```{r, include=FALSE}
+# Regression 1: Simple regression with squared PER 
+reg1 <- lm_robust(avg_salary ~ PER, data = df)
+
+# Regression 2: Simple regression with squared PER 
+reg2 <- lm_robust(avg_salary ~ PER + PER_sq, data = df)
+
+# Regression 3: Multiple regression, controlling for the number of games played
+reg3 <- lm_robust(avg_salary ~ PER + tot_games, data = df)
+
+# Regression 4: Multiple regression controlling for the number of games played, with linear spline at 450
+reg4 <- lm_robust(avg_salary ~ PER + lspline(tot_games,cutoff), data = df)
+
+# Regression 5: Multiple regression with number of games played per career (spline) and draft round 
+reg5 <- lm_robust(avg_salary ~ PER + lspline(tot_games, cutoff) + draft_round, data = df)
+
+```
+
+```{r, message=FALSE, print = TRUE, results='asis'}
+
+texreg( list(reg1 , reg2, reg3, reg4, reg5),
+        type = 'html',
+        custom.model.names = c("Simple Model","Quadratic Model", "Extended Model1", "Extended Model2",
+                               "Extended Model3"),
+        custom.coef.names = c("Intercept","PER", "PER_sq", "Total games",
+                              "Total games <= 500","Total games > 500", "Draft round"),
+        caption = 'Modelling average NBA salaries on perfomance metrics', caption.above = TRUE,
+        include.ci = FALSE, include.rmse = FALSE, include.adjrs = FALSE, digits = 5)
+
+``` 
+ 
+The model was chosen due to its ability to establish interpretation that works properly for players, despite introducing a linear spline and a dummy variable. In addition, the magnitudes of coefficients seem to be meaningful. From statistical perspective, the adjusted $R^2$ is the second highest among the models plus most of the variables are highly significant. The sample is also rather small (less than 500), thus a highly "tailored" model can lead to overfitting (see Appendix 3 for model fit). 
+
+
+### 2.1 Hypothesis Testing on Betas
+
+The test hypothesis is the following $H_0: \beta = 0, \, H_A: \beta \neq 0$ or not in our model. 
+The estimated t-statistics for PER is `r round(reg5$statistic[2],2)`, with p-value: `r reg5$p.value[2]`. 
+The t-statistics for total games played under 500 is `r round(reg5$statistic[3],2)`, with p-value: `r reg5$p.value[3]`, while 
+for above 500 the t-statistics is `r round(reg5$statistic[4],2)` and the p-value is `r reg5$p.value[4]`
+Lastly, the draft round has a  t-statistics of `r round(reg5$statistic[5],2)` and a p-value of  `r reg5$p.value[5]`
+Choosing a significance level of p = 0.05. 
+Based on the above, the $H_0$, can be rejected. This means that the average salary per career of an NBA player is not uncorrelated with PER, total games played and draft round in which the player was selected. Based on the p-value being less than the significance level, the conclusion can be made that the sample data provides enough evidence to reject the null hypothesis. Changes in the independent variable are associated with changes in the dependent variable and control varailbes.
+
+
+
+### 2.2 Residual Analysis
+
+```{r, include=FALSE}
+# Get the predicted y values from the model
+df$reg5_y_pred <- reg5$fitted.values
+# Calculate the errors of the model
+df$reg5_res <- df$avg_salary - df$reg5_y_pred
+
+# Find players with largest negative errors
+neg_err <- df %>% top_n( -3 , reg5_res ) %>% 
+  select( name , avg_salary , reg5_y_pred , reg5_res )
+colnames(neg_err) <- c("Name", "Average salary", "Predicted salary", "Residual")
+
+# Find players with largest positive errors
+pos_err <- df %>% top_n( 3 , reg5_res ) %>% 
+  select( name , avg_salary , reg5_y_pred , reg5_res )
+colnames(pos_err) <- c("Name", "Average salary", "Predicted salary", "Residual")
+
+ 
+```
+
+```{r, message=FALSE, print = TRUE, results='asis'}
+
+kable(neg_err[1:3,], caption = "Largest Negative Errors")
+ 
+```
+
+```{r, message=FALSE, print = TRUE, results='asis'}
+
+kable(pos_err[1:3,], caption = "Largest Positive Errors")
+ 
+```
+
+After analyzing the above errors (Table 4 & 5), it evident that an increase of salaries over time, has an effect on the prediction of the model. It can be observed in the prediction with the larges negative error (Alonzo Mourning). It suggests that the issue might be attributed to the significant increase of the salaries from 2003 to 2018. However, in case of prediction with largest positive error observation (Carmelo Anthony) the issue might be lie in omitted variables. According to the model this player is overpaid, so perhaps in order to improve the prediction capability of the model, some additional variables (e.g. marketability) could be added. For more details on prediction uncertainty see Appendix 4. 
+
+
+### 2.3 Robustness analysis 
+
+In order to check whether the data is missing possible important patterns or if the conducted analysis is only true for this specific sample, the model was executed on an alternative sample of NBA salaries from 1988 to 2002. To provide an equal base for the comparison a subset of observations from the original data was used. It was sampled randomly from the original data on NBA salaries from 2003-2018. 
+
+
+```{r, include=FALSE}
+# Taking a random sample from original sample to enable comparison between the two samples 
+df_sample <- df[sample(nrow(df), 389), ]
+# Re-running the model on the random data sample
+reg5_t1 <- lm_robust(avg_salary ~ PER + lspline(tot_games, cutoff) + draft_round, data = df_sample)
+# Importing the test sample 
+my_data_1 <- "/Users/steve_j/Documents/CEU /data_analysis/DA_2/DA2_Term/Data/nba_clean_rob.csv"
+df_test <- read_csv( my_data_1 )
+# Running the model on the test data 
+reg5_t2 <- lm_robust(avg_salary ~ PER + lspline(tot_games, cutoff) + draft_round, data = df_test)
+
+```
+
+```{r, message=FALSE, print = TRUE, results='asis'}
+
+texreg( list(reg5_t1 , reg5_t2),
+        type = 'html',
+        custom.model.names = c("Random Sample (original data)","Sample 1988-2002"),
+        custom.coef.names = c("Intercept","PER",
+                              "Total games <= 500","Total games > 500", "Draft round"),
+        caption = 'Model robustness check based on 2 samples', caption.above = TRUE,
+        include.ci = FALSE, include.rmse = FALSE, include.adjrs = FALSE, digits = 5)
+
+```
+
+The above summary suggests that the model is sample sensitive. One of the biggest differences is the R2. It looks like it's approximately 0.2 units lower for the new dataset. The total games played (500 >) spline explanatory variable has lost its significance. It indicates that the spline with a knot at 500 might not be a good predictor outside of the original dataset. 
+In addition the RMSE is also smaller for the new data. This might indicate that in the period from 1988-2002 there was a smaller gap between players' salaries. 
+As it was argued earlier some variables might be omitted (e.g. marketability), constant increase in salaries in the NBA also should be taken into account. 
+
+
+## 3 Causality and External Validity 
+
+Is there a possibility of causal relationship between player efficiency and salary? By creating a regression and adding the controls, a small progress has been made towards proving a possible causal relationship. However, once running the model on test sample of salaries and metrics from 1985 to 2002, it was clear that the model is sample sensitive. Perhaps the used functional form is not universal enough to uncover causal relationship between athletes' salaries and PER. In addition, PER is a composite metric, using weights to assign importance to statistics, like points scored, thus the stats are not treated equally, which might affect the ability of the model to uncover causality. 
+The analysis is also affected by possible omitted variables. More control variables should be added in order to bring the analysis closer to causality. These variables can include performance metrics such as win shares or more qualitative thing, like marketability of a player.
+
+
+## 4 Summary
+
+The relationship between NBA players' salaries and Player Efficiency was investigated. Two controls were added in order to account for an athlete's durability (Total games) and potential (Draft round). The functional form was altered using a linear spline (Total games) and a dummy variable (Draft round). Once running the model, it became evident that the continuously increasing salaries in the NBA can distort the predictions made by the model. For example, an athlete who played in the league during the beginning of the 2000s, would still get lower compensation than an athlete who competed during 2010s, even thought they can be similar on every other performance variable. There might be a possibility to offset this phenomena by applying the Purchasing Power Parity theory to the salaries and scaling them up to a reference year to normalize the value of the received compensation. These results might be useful for team managers who are trying to predict the possible market value of a prospective player. 
+
+
+## Appendix
+
+### 1. Variable description 
+
+* Outcome variable: average salary of NBA players for the career. 
+* Explanatory variable: Player Efficiency Ratio. Is a composite rating of a player's per-minute productivity. PER takes into account accomplishments, such as field goals, free throws, 3-pointers, assists, rebounds, blocks and steals, and negative results, such as missed shots, turnovers and personal fouls. The league average is 15.00 every season. It is important to mention that the PER might be more offense focused, thus some players who are better defenders, might be underrated. 
+* Control variable 1: Total games played, aiming to measure a player's durability. 
+* Control variable 2: Draft round in which a player was selected. The goal of the variable is measure potential of a player to earn more. 
+
+ 1.1. Collinearity  
+
+```{r, echo=FALSE, warning= FALSE, message=F, print = TRUE}
+# Testing how the explanatory variables are related to each other 
+
+# Creating a new data frame that contains of only the explanatory variables 
+df_X <- df[,3:6]
+```
+
+```{r, echo=FALSE, message=F, warning= FALSE, print = TRUE}
+# Creating a correlation matrix
+library('GGally')
+ggpairs(df_X) +
+  ggtitle("Graph 3:Correlation Matrix")  + 
+  theme_economist_white()
+  
+
+```
+
+```{r, include=FALSE}
+#install.packages('corpcor')
+library(corpcor)
+part_corr <- cor2pcor(cov(df_X))
+
+colnames(part_corr) <- c("PER", "Tot games", "Draft round", "PER^2")
+rownames(part_corr) <- c("PER", "Tot games", "Draft round", "PER^2")
+```
+
+
+``` {r, message=FALSE, warning= FALSE, print = TRUE}
+kable(part_corr[1:4,], caption = "Pairwise partial correlation coefficients")
+```
+
+Overall, it looks like there in no multicollinearity in the data. However we can check the following. 
+The matrix suggests that there might be a correlation between the PER and the number of games played: level-level model without scaling
+
+```{r, echo=FALSE, message=F, print = TRUE, fig.height=3}
+ggplot( df , aes(x = PER, y = tot_games)) +
+  geom_point() +
+  geom_smooth(method="loess") +
+  ggtitle("Graph 4: Total Games - PER: level-level") +
+  theme_economist_white()
+```
+
+There might be a positive association between the number of games played and PER, however after PER = 14, it tends to be more and more flat. Collinearity is not expected between these variables. 
+
+We can safely assume that there is no collinearity between the draft round and the number of games played. Draft round measures the potential of a player coming to the league, while the number of games played should measure the longevity of a player. It can be affected by many other factors such as injuries 
+
+No collinearity should be assumed for draft round and PER. Draft round is reflecting the accomplishments of a player before coming to the NBA, while PER is accumulated throughout a player's career.  
+                           
+
+## 2. Distributions based on variable transformation
+
+ 2.1. **Average salary - PER: level-level model without scaling**
+
+
+```{r, echo=FALSE, warning=F, message=F, fig.height=3}
+# 1) Average salary per career (in $MM)  - player efficiency rating: level-level model without scaling
+ggplot( df , aes(x = PER, y = avg_salary)) +
+  geom_point() +
+  geom_smooth(method="loess")+
+  labs(x = "Average PER per career", y = "Average salary per career (in $MM)") +
+  ggtitle("Graph 5: Average salary (in $MM) - PER") +
+  theme_economist_white()
+``` 
+
+
+ 
+```{r, echo=FALSE, warning=F, message=F,  fig.height=3}
+ggplot( df , aes(x = PER, y = avg_salary)) +
+  geom_point() +
+  geom_smooth(method="loess")+
+  labs(x = "Average PER per career (ln scale)",y = "Average salary per career (in $MM)") +
+  scale_x_continuous( trans = log_trans(),  breaks = c(1,2,5,10,20,50,100,200,500,1000,10000) ) +
+  ggtitle("Graph 6: Average salary (in $MM) - ln(PER)") +
+  theme_economist_white()
+```
+
+ 2.3. **3) ln(Average salary per career (in $MM)) - Average PER per career: log - level transformation**
+
+```{r, echo=FALSE, message=F, fig.height=3}
+ggplot( df , aes(x = PER, y = avg_salary))  +
+  geom_point() +
+  geom_smooth(method="loess")+
+  labs(x = "Average PER per career",y = "Average salary per career (in $MM, ln scale )") +
+  scale_y_continuous( trans = log_trans(),  breaks = c(1,2,5,10,20,50,100,200,500,1000,10000) ) +
+  ggtitle("Graph 7: ln(Average salary (in $MM) - PER") +
+  theme_economist_white()
+```
+
+ 2.4. **# 4) ln(Average salary per career (in $MM)) - ln(average points scored per career): log log transformation **
+
+```{r, echo=FALSE, message=F, fig.height=3}
+ggplot( df , aes(x = PER, y = avg_salary))  +
+  geom_point() +
+  geom_smooth(method="loess")+
+  labs(x = "Average PER per career (ln scale)", y = "Average salary per career (in $MM, ln scale )") +
+  scale_x_continuous( trans = log_trans(),  breaks = c(1,2,5,10,20,50,100,200,500,1000,10000) )+
+  scale_y_continuous( trans = log_trans(),  breaks = c(1,2,5,10,20,50,100,200,500,1000,10000)  ) +
+  ggtitle("Graph 7: ln(Average salary (in $MM) - ln (PER)") +
+  theme_economist_white()
+```
+
+ 2.5. **Average salary - total games played : level-level model without scaling**
+
+```{r, echo=FALSE, message=F, fig.height=3}
+# 1) Average salary per career (in $MM)  - player efficiency rating: level-level model without scaling
+ggplot( df , aes(x = PER, y = avg_salary)) +
+  geom_point() +
+  geom_smooth(method="loess")+
+  labs(x = "Average PER per career", y = "Average salary per career (in $MM)") +
+  ggtitle("Graph 9: Average salary - Total games played") +
+  theme_economist_white()
+
+```
+
+ 2.6. **Average salary per career (in $MM) - ln(total games played ): level-log transformation**
+
+```{r, echo=FALSE ,message=F, fig.height=3}
+ggplot( df , aes(x = tot_games, y = avg_salary)) +
+  geom_point() +
+  geom_smooth(method="loess")+
+  labs(x = "total games", y = "Average salary per career (in $MM)") + 
+  ggtitle("Graph 10: Average salary (in $MM) - ln(Total games played)") +
+  theme_economist_white()
+```
+
+ 2.7. **ln(Average salary per career (in $MM)) - total games played : log - level transformation**
+
+```{r, echo=FALSE, message=F, fig.height=3}
+ggplot( df , aes(x = tot_games, y = avg_salary))  +
+  geom_point() +
+  geom_smooth(method="loess")+
+  labs(x = "total games",y = "Average salary per career (in $MM, ln scale )") +
+  scale_y_continuous( trans = log_trans(),  breaks = c(1,2,5,10,20,50,100,200,500,1000,10000) ) + 
+  ggtitle("Graph 11: ln(Average salary (in $MM)) - Total games played") +
+  theme_economist_white()
+```
+
+ 2.8. **ln(Average salary per career (in $MM)) - ln(total games played ): log log transformation **
+
+```{r, echo=FALSE, message=F, fig.height=3}
+ggplot( df , aes(x = tot_games, y = avg_salary))  +
+  geom_point() +
+  geom_smooth(method="loess")+
+  labs(x = "total games (ln scale)", y = "Average salary per career (in $MM, ln scale )") +
+  scale_x_continuous( trans = log_trans(),  breaks = c(1,2,5,10,20,50,100,200,500,1000,10000) )+
+  scale_y_continuous( trans = log_trans(),  breaks = c(1,2,5,10,20,50,100,200,500,1000,10000)  ) + 
+  ggtitle("Graph 12: ln(Average salary (in $MM)) - ln(Total games played )") +
+  theme_economist_white()
+```
+
+
+ 2.9 **Average salary per career (in $MM)  - draft round: level-level model without scaling**
+
+```{r, echo=FALSE, message=F, fig.height=3}
+ggplot( df , aes(x = tot_games, y = avg_salary))  +
+  geom_point() +
+  geom_smooth(method="loess")+
+  labs(x = "total games (ln scale)", y = "Average salary per career (in $MM, ln scale )") +
+  scale_x_continuous( trans = log_trans(),  breaks = c(1,2,5,10,20,50,100,200,500,1000,10000) )+
+  scale_y_continuous( trans = log_trans(),  breaks = c(1,2,5,10,20,50,100,200,500,1000,10000)  ) + 
+  ggtitle("Graph 13: Average salary (in $MM)  - Draft round") +
+  theme_economist_white()
+```
+
+## Conclusions on varaible transformations: 
+
+ 1) The level-level model seems to work best for the association between the average salary and PER. A quadratic term might be useful to capture the non-linearities, however it will complicate the interpretation. The benefit of it should be assessed relative to how complex the interpretation gets.   
+ 2) The simple model also works best for total games played, but there's an infection point, at about 500. A spline should be introduced to account for that. 
+ 3) The draft round variable indicates a negative association between the draft round and average salary. The variable can be used as a dummy. 
+
+## Reasons to use transformations
+ 1) Statistical: the quadratic term and spline should help to offset the observed non-linear patterns. In case of PER (quadratic term addition) and total games played (linear spline)
+ 2) Substantive: while introducing the quadratic term and adding a linear spline, the interpretation should still be suitable for players as observations. 
+
+
+## 3. Model fit 
+
+``` {r, include = FALSE}
+ # y_hat-y for reg5
+
+df <- mutate( df , y_hat = predict( reg5 , df ) ) 
+
+
+```
+
+
+``` {r, echo=FALSE, message=F}
+
+# Create: y_hat-y plot
+ggplot( data = df ) +
+  geom_point (aes( x = y_hat , y = avg_salary ) ,  color="red")+
+  geom_line( aes( x = avg_salary , y = avg_salary ) , color = "navyblue" , size = 1.5 )+
+  labs( x = "Predicted salaries", y = "Actual salaries") +
+  ggtitle("Graph 14: Y hat - Y ") +
+  theme_economist_white()
+```
+
+The above plot suggests that the model is fairly good in predicting salaries, however there are still some errors, which might be attributed to possible omitted variables. In addition, we can see that the model considers a number of players to be overvalued. 
+
+
+### 3.1. BIC and AIC measures of model fit
+``` {r, include = FALSE}
+# BIC and AIC measures of the model:
+
+# lm_robust cannot be used for this purpose, thus simple lm is to be used. In this case SEs are not of main importance. 
+
+# Question: Does adding the Total games and Draft Round increase the prediction? 
+#   - Using the same number of observations to compare models
+reg3_lm <- lm(avg_salary ~ PER + tot_games, data = df)
+
+reg4_lm <- lm(avg_salary ~ PER + lspline(tot_games,cutoff), data = df)
+
+reg5_lm <- lm(avg_salary ~ PER + lspline(tot_games, cutoff) + draft_round, data = df)
+
+BIC <- BIC(reg3_lm, reg4_lm, reg5_lm)
+rownames(BIC) <- c("Model 3", "Model 4", "Model 5")
+
+AIC <- AIC(reg3_lm, reg4_lm, reg5_lm)
+rownames(AIC) <- c("Model 3", "Model 4", "Model 5")
+```
+
+``` {r, message=FALSE, print = TRUE}
+kable(BIC[1:3,], caption = "Bayesian Information Criterion")
+```
+The BIC suggests that by adding variables the model models is less likely to be true. 
+
+``` {r, message=FALSE, print = TRUE}
+kable(AIC[1:3,], caption = "Akaike Information Criterion")
+```
+On the other hand the AIC decreased, once control variables were added, thus the added variables might actually be good controls. 
+
+
+## 4. Prediction uncertainty 
+
+### 4.1. Confidence Interval 
+``` {r, include = FALSE}
+# Calculating the SEs for each point:
+ pred5_CI <- predict( reg5, newdata = df , se.fit=T,
+                 interval ="confidence" , alpha = 0.05 )
+
+# Hand made CI for regression line
+# 1) Add to datatset:
+df <- df %>% mutate( CI_reg5_lower = pred5_CI$fit[,2],
+                     CI_reg5_upper = pred5_CI$fit[,3] )
+```
+
+``` {r, echo=FALSE, message=F, fig.height=3}
+
+# 2) Plot
+ggplot(  ) + 
+  geom_point( data = df, aes( x = PER, y = avg_salary ) , color='blue', alpha = 0.25) +
+  geom_line( data = df, aes( x = PER, y = reg5_y_pred ) , color = 'red' , size = 0.25 ) +
+  geom_line( data = df, aes( x = PER, y = CI_reg5_lower ) , color = 'green' ,
+             size = 0.25 , linetype = "dashed" ) +
+  geom_line( data = df, aes( x = PER, y = CI_reg5_upper ) , color = 'black' ,
+             size = 0.25 , linetype = "dashed" ) +
+  labs(x = "Average Player Efficiency Rating",y = "Average Salary ($MM)") +
+  scale_x_continuous(breaks = c(1,2,5,10,20,50,100,200,500,1000,10000)) +
+  ggtitle("Graph 15: Confidence Interval") +
+  theme_economist_white()
+
+```
+
+
+### 4.2. Prediction Interval 
+``` {r, include = FALSE}
+# Calculating prediction intervals 
+#
+pred5_PI <- predict( reg5, newdata = df , interval ="prediction" , alpha = 0.05 )
+
+# Hand made Prediction Interval for regression line
+# 1) Add to datatset (You can use the SE's as well if you wish...
+#                        then alpha does not have any meaning)
+df <- df %>% mutate( PI_reg5_lower = pred5_PI$fit[,2],
+                     PI_reg5_upper = pred5_PI$fit[,3] )
+
+```
+
+``` {r, echo=FALSE, message=F, fig.height=3}
+
+# 2) Plot
+ggplot(  ) + 
+  geom_point( data = df, aes( x = PER, y = avg_salary ) , color='blue', alpha = 0.25) +
+  geom_line( data = df, aes( x = PER, y = reg5_y_pred ) , color = 'red', size = 0.25 ) +
+  geom_line( data = df, aes( x = PER, y = PI_reg5_lower ) , color = 'green' ,
+             size = 1 , linetype = "dotted" ) +
+  geom_line( data = df, aes( x = PER, y = PI_reg5_upper ) , color = 'black' ,
+             size = 1 , linetype = "dotted" ) +
+  labs(x = "Average Player Efficiency Rating",y = "Average Salary ($MM)") +
+  scale_x_continuous(breaks = c(1,2,5,10,20,50,100,200,500,1000,10000)) +
+  ggtitle("Graph 16: Prediction Interval") +
+  theme_economist_white()
+
+```
+
+The above suggests that the model might need calibration. 
