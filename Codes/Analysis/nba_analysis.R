@@ -34,7 +34,7 @@ library(ggthemes)
 library(dplyr)
 
 # Call the data from github
-my_data <- "/Users/steve_j/Documents/CEU /data_analysis/DA_2/DA2_Term/Data/nba_clean.csv"
+my_data <- "https://raw.githubusercontent.com/steveJ34/DA2_Term/main/Data/Clean/nba_clean.csv"
 df <- read_csv( my_data )
 
 # Quick check on all HISTOGRAMS
