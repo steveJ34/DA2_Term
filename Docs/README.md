@@ -5,5 +5,5 @@ The research is aimed to answer the question of whether and how performance metr
 * Codes - the scripts used for cleaning and analysing the data 
 * Data - raw and clean data of NBA salaries and player statistics 
 * Docs - final analysis reports in pdf and html formats 
-* nba_variables - summary of the variables used for the analysis 
+
 ### Link to the repository: https://github.com/steveJ34/DA2_Term
