@@ -43,7 +43,7 @@ library(dplyr)
 #install.packages("GGally")
 library('xtable')
 # Call the data from github
-my_data <- "/Users/steve_j/Documents/CEU /data_analysis/DA_2/DA2_Term/Data/nba_clean.csv"
+my_data <- "https://raw.githubusercontent.com/steveJ34/DA2_Term/main/Data/Clean/nba_clean.csv"
 df <- read_csv( my_data )
 ```
 
@@ -206,7 +206,7 @@ df_sample <- df[sample(nrow(df), 389), ]
 # Re-running the model on the random data sample
 reg5_t1 <- lm_robust(avg_salary ~ PER + lspline(tot_games, cutoff) + draft_round, data = df_sample)
 # Importing the test sample 
-my_data_1 <- "/Users/steve_j/Documents/CEU /data_analysis/DA_2/DA2_Term/Data/nba_clean_rob.csv"
+my_data_1 <- "https://raw.githubusercontent.com/steveJ34/DA2_Term/main/Data/Clean/nba_clean_rob.csv"
 df_test <- read_csv( my_data_1 )
 # Running the model on the test data 
 reg5_t2 <- lm_robust(avg_salary ~ PER + lspline(tot_games, cutoff) + draft_round, data = df_test)
