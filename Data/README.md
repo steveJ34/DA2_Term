@@ -3,3 +3,4 @@ The data is restricted to a time frame of 2003 - 2018. The data was taken from t
 In addition only, players who played a 100 (approx. 1 season) or more games while being under contract are qualified for the analysis. The reason is to exclude the possibility of extreme values due to lack of games played (e.g. 100% made free-throw shots over 20 games). The objective is to model average salaries on efficiency, by comparing players that are similar in some statistics but differ in terms of compensation. In order to conduct the analysis more effectively controls such as the number of games played and the draft in which a player was drafted were included. The table and figure below outlines the descriptive statistics and distributions of the aforementioned variables. 
 * Raw - raw data of NBA salaries and player performance stats from 1985 to 2018
 * Clean - clean data, used for the original analysis and robustness check 
+* nba_variables - summayr of the variables used 
