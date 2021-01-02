@@ -393,7 +393,7 @@ reg5_t1 <- lm_robust(avg_salary ~ PER + lspline(tot_games, cutoff) + draft_round
 summary(reg5_t1)
 
 # Importing the test sample 
-my_data_1 <- "/Users/steve_j/Documents/CEU /data_analysis/DA_2/DA2_Term/Data/nba_clean_rob.csv"
+my_data_1 <- "https://raw.githubusercontent.com/steveJ34/DA2_Term/main/Data/Clean/nba_clean_rob.csv"
 df_test <- read_csv( my_data_1 )
 
 # Running the model on the test data 
