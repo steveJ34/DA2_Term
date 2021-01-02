@@ -1,0 +1,87 @@
+<table class="texreg" style="margin: 10px auto;border-collapse: collapse;border-spacing: 0px;caption-side: bottom;color: #000000;border-top: 2px solid #000000;">
+<caption>Testing robustness of model on different samples</caption>
+<thead>
+<tr>
+<th style="padding-left: 5px;padding-right: 5px;">&nbsp;</th>
+<th style="padding-left: 5px;padding-right: 5px;">Random Sample (original data)</th>
+<th style="padding-left: 5px;padding-right: 5px;">Sample 1988-2003</th>
+</tr>
+</thead>
+<tbody>
+<tr style="border-top: 1px solid #000000;">
+<td style="padding-left: 5px;padding-right: 5px;">(Intercept)</td>
+<td style="padding-left: 5px;padding-right: 5px;">-7.11310<sup>***</sup></td>
+<td style="padding-left: 5px;padding-right: 5px;">-1.44103<sup>**</sup></td>
+</tr>
+<tr>
+<td style="padding-left: 5px;padding-right: 5px;">&nbsp;</td>
+<td style="padding-left: 5px;padding-right: 5px;">(0.65027)</td>
+<td style="padding-left: 5px;padding-right: 5px;">(0.52919)</td>
+</tr>
+<tr>
+<td style="padding-left: 5px;padding-right: 5px;">PER</td>
+<td style="padding-left: 5px;padding-right: 5px;">0.60758<sup>***</sup></td>
+<td style="padding-left: 5px;padding-right: 5px;">0.27757<sup>***</sup></td>
+</tr>
+<tr>
+<td style="padding-left: 5px;padding-right: 5px;">&nbsp;</td>
+<td style="padding-left: 5px;padding-right: 5px;">(0.03827)</td>
+<td style="padding-left: 5px;padding-right: 5px;">(0.03776)</td>
+</tr>
+<tr>
+<td style="padding-left: 5px;padding-right: 5px;">lspline(tot_games, cutoff)1</td>
+<td style="padding-left: 5px;padding-right: 5px;">0.00660<sup>***</sup></td>
+<td style="padding-left: 5px;padding-right: 5px;">0.00044</td>
+</tr>
+<tr>
+<td style="padding-left: 5px;padding-right: 5px;">&nbsp;</td>
+<td style="padding-left: 5px;padding-right: 5px;">(0.00115)</td>
+<td style="padding-left: 5px;padding-right: 5px;">(0.00065)</td>
+</tr>
+<tr>
+<td style="padding-left: 5px;padding-right: 5px;">lspline(tot_games, cutoff)2</td>
+<td style="padding-left: 5px;padding-right: 5px;">0.00284<sup>***</sup></td>
+<td style="padding-left: 5px;padding-right: 5px;">0.00096<sup>*</sup></td>
+</tr>
+<tr>
+<td style="padding-left: 5px;padding-right: 5px;">&nbsp;</td>
+<td style="padding-left: 5px;padding-right: 5px;">(0.00063)</td>
+<td style="padding-left: 5px;padding-right: 5px;">(0.00042)</td>
+</tr>
+<tr>
+<td style="padding-left: 5px;padding-right: 5px;">draft_round</td>
+<td style="padding-left: 5px;padding-right: 5px;">-0.54273<sup>*</sup></td>
+<td style="padding-left: 5px;padding-right: 5px;">-0.56908<sup>***</sup></td>
+</tr>
+<tr>
+<td style="padding-left: 5px;padding-right: 5px;">&nbsp;</td>
+<td style="padding-left: 5px;padding-right: 5px;">(0.24829)</td>
+<td style="padding-left: 5px;padding-right: 5px;">(0.12321)</td>
+</tr>
+<tr style="border-top: 1px solid #000000;">
+<td style="padding-left: 5px;padding-right: 5px;">R<sup>2</sup></td>
+<td style="padding-left: 5px;padding-right: 5px;">0.64611</td>
+<td style="padding-left: 5px;padding-right: 5px;">0.39280</td>
+</tr>
+<tr>
+<td style="padding-left: 5px;padding-right: 5px;">Adj. R<sup>2</sup></td>
+<td style="padding-left: 5px;padding-right: 5px;">0.64243</td>
+<td style="padding-left: 5px;padding-right: 5px;">0.38648</td>
+</tr>
+<tr>
+<td style="padding-left: 5px;padding-right: 5px;">Num. obs.</td>
+<td style="padding-left: 5px;padding-right: 5px;">389</td>
+<td style="padding-left: 5px;padding-right: 5px;">389</td>
+</tr>
+<tr style="border-bottom: 2px solid #000000;">
+<td style="padding-left: 5px;padding-right: 5px;">RMSE</td>
+<td style="padding-left: 5px;padding-right: 5px;">2.02554</td>
+<td style="padding-left: 5px;padding-right: 5px;">1.41780</td>
+</tr>
+</tbody>
+<tfoot>
+<tr>
+<td style="font-size: 0.8em;" colspan="3"><sup>***</sup>p &lt; 0.001; <sup>**</sup>p &lt; 0.01; <sup>*</sup>p &lt; 0.05</td>
+</tr>
+</tfoot>
+</table>
